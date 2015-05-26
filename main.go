@@ -14,7 +14,8 @@ func main() {
 		log.Fatal(err)
 	}
 	//fmt.Println(projpath)
-	err = ncopycore.NCopy(projpath)
+	var ncopy ncopycore.NCopy
+	err = ncopy.Copy(projpath)
 	if err != nil {
 		log.Fatal(err)
 	}
