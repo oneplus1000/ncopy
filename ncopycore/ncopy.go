@@ -2,6 +2,7 @@ package ncopycore
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -18,9 +19,16 @@ const NCOPY_INI = "ncopy.ini"
 type NCopy struct {
 	cfg          Conf
 	ignoreRegexs []string
+	projpath     string
+}
+
+func (me *NCopy) getDestPath() string {
+	return me.projpath
 }
 
 func (me *NCopy) Copy(projpath string) error {
+
+	me.projpath = projpath
 
 	ncopyini := filepath.Join(projpath, PATH_FOLDER, NCOPY_INI)
 	if _, err := os.Stat(ncopyini); os.IsNotExist(err) {
@@ -34,7 +42,7 @@ func (me *NCopy) Copy(projpath string) error {
 	}
 	me.cfg = cfg
 	me.ignoreToRegexs()
-	fmt.Printf("%#v\n", me.ignoreRegexs)
+	//fmt.Printf("%#v\n", me.ignoreRegexs)
 
 	if _, err := os.Stat(cfg.Src.Path); os.IsNotExist(err) {
 		return err
@@ -75,9 +83,49 @@ func (me *NCopy) copyfiles(path string) {
 	} else {
 		if !me.isIgnore(me.virPath(path)) {
 			//TODO COPY
-			//fmt.Printf("%s\n", me.virPath(path))
+			err := me.copyfile(path, filepath.Join(me.getDestPath(), me.virPath(path)))
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
 		}
 	}
+}
+
+func (me *NCopy) exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func (me *NCopy) copyfile(source string, dest string) (err error) {
+
+	fmt.Printf("cp %s\n", me.virPath(source))
+
+	dirpath, _ := filepath.Split(dest)
+	ex, err := me.exists(dirpath)
+	if err != nil {
+		return err
+	}
+
+	if !ex {
+		err = os.MkdirAll(dirpath, 0777)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = me.cp(source, dest)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (me *NCopy) ignoreToRegexs() {
@@ -101,11 +149,31 @@ func (me *NCopy) isIgnore(virpath string) bool {
 		}
 
 		if matched {
-			fmt.Printf("%s\n", virpath)
+			//fmt.Printf("%s\n", virpath)
 			return true //ignore
 		}
 	}
 	return false
+}
+
+func (me *NCopy) cp(src string, dst string) error {
+	s, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	// no need to check errors on read only file, we already got everything
+	// we need from the filesystem, so nothing can go wrong now.
+	defer s.Close()
+	d, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(d, s); err != nil {
+		d.Close()
+		return err
+	}
+	return d.Close()
 }
 
 func (me *NCopy) virPath(path string) string {
