@@ -1,7 +1,7 @@
-## file /.ncopy/ncopy.ini
+## Sample [project root]/.ncopy/ncopy.ini
 ```
 [src]
-path = "/home/oneplus/GOPATH/src/sendo"
+path = "/some/proj"
 [ignore]
 files = "*.exe"
 files = "*~"
