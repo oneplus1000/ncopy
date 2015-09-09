@@ -1,3 +1,5 @@
+![Alt text](https://github.com/oneplus1000/ncopy/blob/master/README/sample.png "Optional Title")
+
 ## Sample [project root]/.ncopy/ncopy.ini
 ```
 [src]
