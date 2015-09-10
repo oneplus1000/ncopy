@@ -76,11 +76,11 @@ func (n *NCopy) createDotNCopyFolder(projpath string) error {
 	return nil
 }
 
-var TmplNCopyIni = "[src]\n" +
-	"path = \"{{.SrcDir}}\"\n" +
-	"[ignore]\n" +
-	"files = \".git\"\n" +
-	"files = \".gitignore\"\n"
+var TmplNCopyIni = "[src]\r\n" +
+	"path = \"{{.SrcDir}}\"\r\n" +
+	"[ignore]\r\n" +
+	"files = \".git\"\r\n" +
+	"files = \".gitignore\"\r\n"
 
 func (n *NCopy) createDefaultNCopyIni(projpath string, paramInit ParamInit) error {
 
@@ -133,6 +133,7 @@ func (n *NCopy) Copy(projpath string) error {
 
 func FixPath(path string) string {
 	path = filepath.Clean(path) //clean path
+	path = strings.Replace(path, "\\", "\\\\", -1)
 	return path
 }
 
