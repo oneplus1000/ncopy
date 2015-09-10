@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"path/filepath"
@@ -8,15 +9,26 @@ import (
 	"github.com/oneplus1000/ncopy/ncopycore"
 )
 
+var ncopyInit = flag.Bool("init", false, "init destination folder.")
+
 func main() {
+	flag.Parse()
 	projpath, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		log.Fatal(err)
 	}
-	//fmt.Println(projpath)
 	var ncopy ncopycore.NCopy
-	err = ncopy.Copy(projpath)
-	if err != nil {
-		log.Fatal(err)
+	if *ncopyInit { //init
+		err = ncopy.InitDestFolder(projpath)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+	} else { //copy
+		err = ncopy.Copy(projpath)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
 	}
 }

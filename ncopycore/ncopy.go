@@ -1,6 +1,8 @@
 package ncopycore
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"text/template"
 
 	"code.google.com/p/gcfg"
 )
@@ -16,19 +19,93 @@ import (
 const PATH_FOLDER = ".ncopy"
 const NCOPY_INI = "ncopy.ini"
 
+var ErrDestDirNoEmpty = errors.New("Folder is not empty!")
+var ErrSrcPathNotDir = errors.New("Source path is not folder!")
+
 type NCopy struct {
 	cfg          Conf
 	ignoreRegexs []string
 	projpath     string
 }
 
-func (me *NCopy) getDestPath() string {
-	return me.projpath
+func (n *NCopy) getDestPath() string {
+	return n.projpath
 }
 
-func (me *NCopy) Copy(projpath string) error {
+func (n *NCopy) InitDestFolder(projpath string) error {
+	isEmpty, err := n.IsDirEmpty(projpath)
+	if err != nil {
+		return err
+	} else if !isEmpty {
+		return ErrDestDirNoEmpty
+	}
 
-	me.projpath = projpath
+	var paramInit ParamInit
+	fmt.Printf("source folder: ")
+	_, err = fmt.Scanln(&paramInit.SrcDir)
+	if err != nil {
+		return err
+	}
+
+	isDir, err := n.IsDir(paramInit.SrcDir)
+	if err != nil {
+		return err
+	} else if !isDir {
+		return ErrSrcPathNotDir
+	}
+
+	err = n.createDotNCopyFolder(projpath)
+	if err != nil {
+		return err
+	}
+
+	err = n.createDefaultNCopyIni(projpath, paramInit)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (n *NCopy) createDotNCopyFolder(projpath string) error {
+	err := os.Mkdir(filepath.Join(projpath, PATH_FOLDER), 0777)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+var TmplNCopyIni = "[src]\n" +
+	"path = \"{{.SrcDir}}\"\n" +
+	"[ignore]\n" +
+	"files = \".git\"\n" +
+	"files = \".gitignore\"\n"
+
+func (n *NCopy) createDefaultNCopyIni(projpath string, paramInit ParamInit) error {
+
+	tmpl, err := template.New("ncopy_ini").Parse(TmplNCopyIni)
+	if err != nil {
+		return nil
+	}
+
+	var buff bytes.Buffer
+	err = tmpl.Execute(&buff, paramInit)
+	if err != nil {
+		return err
+	}
+
+	ncopyinipath := filepath.Join(projpath, PATH_FOLDER, NCOPY_INI)
+	err = ioutil.WriteFile(ncopyinipath, buff.Bytes(), 0777)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (n *NCopy) Copy(projpath string) error {
+
+	n.projpath = projpath
 
 	ncopyini := filepath.Join(projpath, PATH_FOLDER, NCOPY_INI)
 	if _, err := os.Stat(ncopyini); os.IsNotExist(err) {
@@ -40,20 +117,20 @@ func (me *NCopy) Copy(projpath string) error {
 	if err != nil {
 		return err
 	}
-	me.cfg = cfg
-	me.ignoreToRegexs()
+	n.cfg = cfg
+	n.ignoreToRegexs()
 	//fmt.Printf("%#v\n", me.ignoreRegexs)
 
 	if _, err := os.Stat(cfg.Src.Path); os.IsNotExist(err) {
 		return err
 	}
 
-	me.copyfiles(cfg.Src.Path)
+	n.copyfiles(cfg.Src.Path)
 
 	return nil
 }
 
-func (me *NCopy) copyfiles(path string) {
+func (n *NCopy) copyfiles(path string) {
 
 	f, err := os.Open(path)
 	if err != nil {
@@ -62,7 +139,7 @@ func (me *NCopy) copyfiles(path string) {
 	}
 	defer f.Close()
 
-	isDir, err := me.isDir(f)
+	isDir, err := n.isDir(f)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -76,14 +153,14 @@ func (me *NCopy) copyfiles(path string) {
 		}
 		for _, finfo := range finfos {
 			fpath := filepath.Join(path, finfo.Name())
-			if !me.isIgnore(me.virPath(fpath)) {
-				me.copyfiles(fpath)
+			if !n.isIgnore(n.virPath(fpath)) {
+				n.copyfiles(fpath)
 			}
 		}
 	} else {
-		if !me.isIgnore(me.virPath(path)) {
+		if !n.isIgnore(n.virPath(path)) {
 			//TODO COPY
-			err := me.copyfile(path, filepath.Join(me.getDestPath(), me.virPath(path)))
+			err := n.copyfile(path, filepath.Join(n.getDestPath(), n.virPath(path)))
 			if err != nil {
 				log.Fatal(err)
 				return
@@ -92,7 +169,7 @@ func (me *NCopy) copyfiles(path string) {
 	}
 }
 
-func (me *NCopy) exists(path string) (bool, error) {
+func (n *NCopy) exists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
 		return true, nil
@@ -103,12 +180,12 @@ func (me *NCopy) exists(path string) (bool, error) {
 	return false, err
 }
 
-func (me *NCopy) copyfile(source string, dest string) (err error) {
+func (n *NCopy) copyfile(source string, dest string) (err error) {
 
-	fmt.Printf("cp %s\n", me.virPath(source))
+	fmt.Printf("copy %s\n", n.virPath(source))
 
 	dirpath, _ := filepath.Split(dest)
-	ex, err := me.exists(dirpath)
+	ex, err := n.exists(dirpath)
 	if err != nil {
 		return err
 	}
@@ -120,7 +197,7 @@ func (me *NCopy) copyfile(source string, dest string) (err error) {
 		}
 	}
 
-	err = me.cp(source, dest)
+	err = n.cp(source, dest)
 	if err != nil {
 		return err
 	}
@@ -128,20 +205,20 @@ func (me *NCopy) copyfile(source string, dest string) (err error) {
 	return nil
 }
 
-func (me *NCopy) ignoreToRegexs() {
-	for _, s := range me.cfg.Ignore.Files {
+func (n *NCopy) ignoreToRegexs() {
+	for _, s := range n.cfg.Ignore.Files {
 		rx := strings.Replace(s, "\\", "\\\\", -1)
 		rx = strings.Replace(s, "/", "\\/", -1)
 		rx = strings.Replace(rx, ".", "\\.", -1)
 		rx = strings.Replace(rx, "~", "\\~", -1)
 		rx = "^" + rx + "$"
-		me.ignoreRegexs = append(me.ignoreRegexs, rx)
+		n.ignoreRegexs = append(n.ignoreRegexs, rx)
 	}
 }
 
-func (me *NCopy) isIgnore(virpath string) bool {
+func (n *NCopy) isIgnore(virpath string) bool {
 
-	for _, rx := range me.ignoreRegexs {
+	for _, rx := range n.ignoreRegexs {
 		matched, err := regexp.MatchString(rx, virpath)
 		if err != nil {
 			log.Fatal(err)
@@ -156,7 +233,7 @@ func (me *NCopy) isIgnore(virpath string) bool {
 	return false
 }
 
-func (me *NCopy) cp(src string, dst string) error {
+func (n *NCopy) cp(src string, dst string) error {
 	s, err := os.Open(src)
 	if err != nil {
 		return err
@@ -176,13 +253,23 @@ func (me *NCopy) cp(src string, dst string) error {
 	return d.Close()
 }
 
-func (me *NCopy) virPath(path string) string {
-	l := len(me.cfg.Src.Path) + 1
+func (n *NCopy) virPath(path string) string {
+	l := len(n.cfg.Src.Path) + 1
 	vpath := path[l:]
 	return vpath
 }
 
-func (me *NCopy) isDir(file *os.File) (bool, error) {
+func (n *NCopy) IsDir(path string) (bool, error) {
+
+	f, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	return n.isDir(f)
+}
+
+func (n *NCopy) isDir(file *os.File) (bool, error) {
 
 	finfo, err := file.Stat()
 	if err != nil {
@@ -194,4 +281,18 @@ func (me *NCopy) isDir(file *os.File) (bool, error) {
 	}
 	return false, nil
 
+}
+
+func (n *NCopy) IsDirEmpty(dir string) (bool, error) {
+
+	f, err := os.Open(dir)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	_, err = f.Readdir(1) //อ่านแค่ file เดียว
+	if err == io.EOF {    //เจอ EOF เลย ว่างแน่ๆ
+		return true, nil
+	}
+	return false, err
 }
