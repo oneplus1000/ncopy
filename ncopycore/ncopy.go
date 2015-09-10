@@ -42,10 +42,11 @@ func (n *NCopy) InitDestFolder(projpath string) error {
 
 	var paramInit ParamInit
 	fmt.Printf("source folder: ")
-	_, err = fmt.Scanln(&paramInit.SrcDir)
+	_, err = fmt.Scanf("%s", &paramInit.SrcDir)
 	if err != nil {
 		return err
 	}
+	paramInit.SrcDir = FixPath(paramInit.SrcDir)
 
 	isDir, err := n.IsDir(paramInit.SrcDir)
 	if err != nil {
@@ -117,10 +118,10 @@ func (n *NCopy) Copy(projpath string) error {
 	if err != nil {
 		return err
 	}
+
 	n.cfg = cfg
 	n.ignoreToRegexs()
 	//fmt.Printf("%#v\n", me.ignoreRegexs)
-
 	if _, err := os.Stat(cfg.Src.Path); os.IsNotExist(err) {
 		return err
 	}
@@ -128,6 +129,11 @@ func (n *NCopy) Copy(projpath string) error {
 	n.copyfiles(cfg.Src.Path)
 
 	return nil
+}
+
+func FixPath(path string) string {
+	path = filepath.Clean(path) //clean path
+	return path
 }
 
 func (n *NCopy) copyfiles(path string) {

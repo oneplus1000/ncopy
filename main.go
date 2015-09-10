@@ -32,3 +32,10 @@ func main() {
 		}
 	}
 }
+
+/*
+func main() {
+	var str string
+	fmt.Scanf("%s", &str)
+	fmt.Printf("%s", str)
+}*/
