@@ -187,10 +187,14 @@ func (n *NCopy) exists(path string) (bool, error) {
 	return false, err
 }
 
+//print copy status
+func (n *NCopy) PrintCopyStatus(source string) {
+	fmt.Printf("copy %s\n", n.virPath(source))
+}
+
 func (n *NCopy) copyfile(source string, dest string) (err error) {
 
-	fmt.Printf("copy %s\n", n.virPath(source))
-
+	n.PrintCopyStatus(source) //print status
 	dirpath, _ := filepath.Split(dest)
 	ex, err := n.exists(dirpath)
 	if err != nil {
