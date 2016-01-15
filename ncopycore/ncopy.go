@@ -26,6 +26,11 @@ type NCopy struct {
 	cfg          Conf
 	ignoreRegexs []string
 	projpath     string
+	verbose      bool
+}
+
+func (n *NCopy) SetVerbose(verbose bool) {
+	n.verbose = verbose
 }
 
 func (n *NCopy) getDestPath() string {
@@ -189,7 +194,9 @@ func (n *NCopy) exists(path string) (bool, error) {
 
 //print copy status
 func (n *NCopy) PrintCopyStatus(source string) {
-	fmt.Printf("copy %s\n", n.virPath(source))
+	if n.verbose {
+		fmt.Printf("copy %s\n", n.virPath(source))
+	}
 }
 
 func (n *NCopy) copyfile(source string, dest string) (err error) {

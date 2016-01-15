@@ -10,6 +10,7 @@ import (
 )
 
 var ncopyInit = flag.Bool("init", false, "init destination folder.")
+var verbose = flag.Bool("v", false, "verbose.")
 
 func main() {
 	flag.Parse()
@@ -18,6 +19,7 @@ func main() {
 		log.Fatal(err)
 	}
 	var ncopy ncopycore.NCopy
+	ncopy.SetVerbose(*verbose)
 	if *ncopyInit { //init
 		err = ncopy.InitDestFolder(projpath)
 		if err != nil {
